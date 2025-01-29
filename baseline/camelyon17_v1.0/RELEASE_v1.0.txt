@@ -1,0 +1,4 @@
+# Release notes for Camelyon17
+
+## v1.0
+Dec 9, 2020: First release.
