@@ -2,11 +2,10 @@
 dataset.py
 """
 from scipy.ndimage import gaussian_filter
-import seaborn as sns
 from scipy.stats import entropy
 import numpy as np
 import matplotlib.pyplot as plt
-from torchvision import datasets, transforms
+from torchvision import datasets
 import torch
 from torch.utils.data import TensorDataset
 from scipy.ndimage import rotate
@@ -16,20 +15,16 @@ class ColoredMNIST:
     def __init__(self, env, root='./data'):
         self.env = env
         self.root = root
-
-        # Load MNIST dataset
         mnist = datasets.MNIST(root, train=(env == 'e1'), download=True)
         self.images, self.labels = mnist.data.numpy(), mnist.targets.numpy()
-
-        # Add color
         self.images = self.color_images()
 
     def color_images(self):
         colored_images = np.zeros((len(self.images), 28, 28, 3), dtype=np.uint8)
         for i, img in enumerate(self.images):
             color = self.get_color(self.labels[i])
-            colored_images[i, :, :, 0] = (img * color[0]).astype(np.uint8)  # Red channel
-            colored_images[i, :, :, 1] = (img * color[1]).astype(np.uint8)  # Green channel
+            colored_images[i, :, :, 0] = (img * color[0]).astype(np.uint8)
+            colored_images[i, :, :, 1] = (img * color[1]).astype(np.uint8)
         return colored_images
 
     def get_color(self, label):
@@ -39,7 +34,6 @@ class ColoredMNIST:
         else:
             # In e2, P(red|even) = 0.25, P(red|odd) = 0.75
             p_red = 0.25 if label % 2 == 0 else 0.75
-
         return (1, 0) if np.random.random() < p_red else (0, 1)  # (R, G)
 
     def __len__(self):
@@ -52,40 +46,29 @@ def calculate_label_color_stats(env):
     for img, label in zip(env.images, env.labels):
         if img[:, :, 0].max() > 0:  # Red
             stats[label]['red'] += 1
-        else:  # Green
+        else:
             stats[label]['green'] += 1
     return stats
 def display_examples(env, num_examples=5):
     fig, axes = plt.subplots(2, num_examples, figsize=(20, 8))
     fig.suptitle(f"Examples from {env.env.upper()}")
-
     label_color_stats = calculate_label_color_stats(env)
-
     for i in range(num_examples):
         idx = np.random.randint(len(env))
         img, label = env[idx]
-
-        # Original image
         axes[0, i].imshow(img)
         axes[0, i].set_title(f"Label: {label}")
         axes[0, i].axis('off')
-
-        # Color distribution for the label
         red_count = label_color_stats[label]['red']
         green_count = label_color_stats[label]['green']
-
-        # Create side-by-side bars
         x = np.arange(2)
         width = 0.35
         axes[1, i].bar(x[0], red_count, width, color='red', label='Red')
         axes[1, i].bar(x[1], green_count, width, color='green', label='Green')
-
         axes[1, i].set_ylabel('Count')
         axes[1, i].set_title(f"Label {label} Color Distribution")
         axes[1, i].set_xticks(x)
         axes[1, i].set_xticklabels(['Red', 'Green'])
-
-        # Add text labels for counts
         axes[1, i].text(x[0], red_count, str(red_count), ha='center', va='bottom')
         axes[1, i].text(x[1], green_count, str(green_count), ha='center', va='bottom')
 
@@ -99,30 +82,23 @@ def calculate_detailed_statistics(env):
         "Color counts": {"Red": 0, "Green": 0},
         "Digit-Color counts": {}
     }
-
     for i in range(10):
         stats["Digit counts"][i] = np.sum(env.labels == i)
         stats["Digit-Color counts"][i] = {"Red": 0, "Green": 0}
-
     for img, label in zip(env.images, env.labels):
         if img[:, :, 0].max() > 0:  # Red
             stats["Color counts"]["Red"] += 1
             stats["Digit-Color counts"][label]["Red"] += 1
-        else:  # Green
+        else:
             stats["Color counts"]["Green"] += 1
             stats["Digit-Color counts"][label]["Green"] += 1
-
     return stats
 def visualize_cmnist():
-    # Create environments
     e1 = ColoredMNIST('e1')
     e2 = ColoredMNIST('e2')
-
-    # Display examples and statistics for each environment
     for env in [e1, e2]:
         print(f"\nEnvironment: {env.env.upper()}")
         display_examples(env)
-
         stats = calculate_detailed_statistics(env)
         print(f"Total images: {stats['Total images']}")
         print("\nDigit counts:")
@@ -138,25 +114,18 @@ def visualize_cmnist():
             total_digit = red_count + green_count
             red_percentage = (red_count / total_digit) * 100 if total_digit > 0 else 0
             print(f"  {digit}: Red = {red_count} ({red_percentage:.2f}%), Green = {green_count}")
-
         print("\n" + "=" * 50 + "\n")
 
 
 class RotatedMNIST:
     ENVIRONMENTS = ['0', '15', '30', '45', '60', '75']
-
     def __init__(self, root='./data'):
         self.root = root
         self.envs = {}
-
-        # Load MNIST dataset
         mnist = datasets.MNIST(root, train=True, download=True)
         self.images, self.labels = mnist.data.numpy(), mnist.targets.numpy()
-
-        # Create rotated environments
         for angle in [0, 15, 30, 45, 60, 75]:
             self.envs[str(angle)] = self.rotate_dataset(self.images, self.labels, angle)
-
     def rotate_dataset(self, images, labels, angle):
         rotated_images = np.zeros_like(images)
         for i, img in enumerate(images):
@@ -165,18 +134,15 @@ class RotatedMNIST:
 
     def __getitem__(self, env):
         return self.envs[env]
-def display_examples(env_data, angle, num_examples=5):
+def rdisplay_examples(env_data, angle, num_examples=5):
     fig, axes = plt.subplots(1, num_examples, figsize=(15, 3))
     fig.suptitle(f"Examples from Rotated MNIST (Angle: {angle}°)")
-
     for i in range(num_examples):
         idx = np.random.randint(len(env_data))
         img, label = env_data[idx]
-
         axes[i].imshow(img.squeeze(), cmap='gray')
         axes[i].set_title(f"Label: {label}")
         axes[i].axis('off')
-
     plt.tight_layout()
     plt.show()
 def calculate_statistics(env_data):
@@ -184,28 +150,21 @@ def calculate_statistics(env_data):
     unique, counts = np.unique(labels, return_counts=True)
     return dict(zip(unique, counts))
 def visualize_rmnist():
-    # Create RotatedMNIST instance
     rotated_mnist = RotatedMNIST()
-
-    # Display examples and statistics for each environment
     for angle in RotatedMNIST.ENVIRONMENTS:
         print(f"\nEnvironment: Rotation {angle}°")
         env_data = rotated_mnist[angle]
-        display_examples(env_data, angle)
-
+        rdisplay_examples(env_data, angle)
         stats = calculate_statistics(env_data)
         print("Digit counts:")
         for digit, count in stats.items():
             print(f"  {digit}: {count}")
-
         print("\n" + "=" * 50 + "\n")
 
 
 class Camelyon17Dataset:
     def __init__(self, hospital='h1'):
         self.hospital = hospital
-
-        # Actual distribution from the paper
         self.distribution = {
             'h1': {'total': 17934, 'tumor': 7786, 'normal': 10148},
             'h2': {'total': 15987, 'tumor': 6446, 'normal': 9541},
@@ -213,8 +172,6 @@ class Camelyon17Dataset:
             'h4': {'total': 17155, 'tumor': 7502, 'normal': 9653},
             'h5': {'total': 16960, 'tumor': 7089, 'normal': 9871}
         }
-
-        # Define hospital-specific color schemes with lighter backgrounds
         self.hospital_params = {
             'h1': {'background': (0.98, 0.95, 0.95), 'tumor': (0.6, 0.2, 0.2)},
             'h2': {'background': (0.97, 0.95, 0.98), 'tumor': (0.5, 0.15, 0.4)},
@@ -222,7 +179,6 @@ class Camelyon17Dataset:
             'h4': {'background': (0.97, 0.95, 0.93), 'tumor': (0.5, 0.3, 0.2)},
             'h5': {'background': (0.95, 0.97, 0.97), 'tumor': (0.3, 0.4, 0.4)}
         }
-
         self.images = {'normal': self._generate_tissue_pattern(False),
                        'tumor': self._generate_tissue_pattern(True)}
 
@@ -234,33 +190,24 @@ class Camelyon17Dataset:
     def _generate_tissue_pattern(self, has_tumor=False):
         size = 96
         img = np.ones((size, size, 3)) * np.array(self.hospital_params[self.hospital]['background'])
-
-        # Generate scattered white spots
         white_spots = self._generate_noise_pattern(size, density=0.1, scale=1.2)
         for c in range(3):
             img[:, :, c] = np.clip(img[:, :, c] + white_spots, 0, 1)
 
         if has_tumor:
-            # Create centered tumor region
             center = size // 2
             radius = size // 5
             y, x = np.ogrid[-center:size - center, -center:size - center]
             tumor_base = x * x + y * y <= radius * radius
-
-            # Generate granular tumor texture
             tumor_texture = np.zeros((size, size))
             for _ in range(3):  # Layer multiple noise patterns
                 noise = self._generate_noise_pattern(size, density=0.3, scale=0.5)
                 tumor_texture += noise
             tumor_texture = tumor_texture / tumor_texture.max()
-
-            # Combine base tumor shape with texture
             tumor_mask = tumor_base & (tumor_texture > 0.3)
             tumor_color = np.array(self.hospital_params[self.hospital]['tumor'])
-
             for c in range(3):
                 img[:, :, c][tumor_mask] = tumor_color[c]
-
         return img
 def visualize_camelyon17():
     plt.style.use('default')
@@ -380,22 +327,14 @@ class BallAgentDataset:
         return np.clip(img, 0, 1)
 def visualize_ball_agent(n_balls):
     dataset = BallAgentDataset(n_balls=n_balls, n_samples=10000)
-
-    # Calculate key statistics
     intervention_counts = np.sum(dataset.interventions, axis=0)
     simultaneous_interventions = np.sum(dataset.interventions, axis=1)
     pattern_counts = np.bincount(simultaneous_interventions)
-
-    # Calculate co-occurrence matrix
     cooccurrence = np.zeros((n_balls, n_balls))
     for intervention in dataset.interventions:
         cooccurrence += np.outer(intervention, intervention)
-
-    # Normalize co-occurrence matrix
     for i in range(n_balls):
         cooccurrence[i] = cooccurrence[i] / cooccurrence[i, i]
-
-    # Calculate distances between balls
     distances = []
     for pos in dataset.positions:
         pos_reshaped = pos.reshape(-1, 2)
@@ -403,28 +342,19 @@ def visualize_ball_agent(n_balls):
             for j in range(i + 1, n_balls):
                 dist = np.sqrt(np.sum((pos_reshaped[i] - pos_reshaped[j]) ** 2))
                 distances.append(dist)
-
-    # Plotting
     fig = plt.figure(figsize=(15, 12))
-    # plt.suptitle(f'Ball Agent Statistics ({n_balls} balls, {dataset.n_samples} samples)')
-
-    # Plot examples
     for i in range(4):
         ax = plt.subplot(2, 2, i + 1)
         plt.imshow(dataset.images[i])
         plt.axis('off')
         plt.title(f'Example {i + 1}')
-
     plt.tight_layout()
 
     fig = plt.figure(figsize=(10, 6))
     plt.hist(distances, bins=50, color='#2ecc71')
-    # plt.title('Ball Distance Distribution')
     plt.xlabel('Distance')
     plt.ylabel('Frequency')
     plt.grid(True, alpha=0.3)
-
-    # Print detailed statistics
     print(f"\nBall Agent Dataset Statistics ({n_balls} balls):")
     print("-" * 50)
     print(f"Total samples: {dataset.n_samples}")
@@ -432,22 +362,17 @@ def visualize_ball_agent(n_balls):
     for i in range(n_balls):
         print(
             f"Ball {i}: {intervention_counts[i]} interventions ({intervention_counts[i] / dataset.n_samples * 100:.1f}%)")
-
     print(f"\nSimultaneous Intervention Patterns:")
     for i, count in enumerate(pattern_counts):
         print(f"{i} ball{'s' if i != 1 else ''} intervened: {count} samples ({count / dataset.n_samples * 100:.1f}%)")
-
     print(f"\nDistance Statistics:")
     print(f"Minimum distance: {min(distances):.3f}")
     print(f"Maximum distance: {max(distances):.3f}")
     print(f"Mean distance: {np.mean(distances):.3f}")
     print(f"Median distance: {np.median(distances):.3f}")
-
-    # Calculate entropy of intervention patterns
     pattern_probs = pattern_counts / np.sum(pattern_counts)
     intervention_entropy = entropy(pattern_probs)
     print(f"\nIntervention Pattern Entropy: {intervention_entropy:.3f} bits")
-
     plt.show()
 
 if __name__ == "__main__":
